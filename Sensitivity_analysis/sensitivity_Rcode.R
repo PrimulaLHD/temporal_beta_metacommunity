@@ -208,27 +208,3 @@ ggsave("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Figs/horva
        width = 7.2, height = 8.2, units = "in")
 ggsave("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Figs/horvath_beta_sensitivity_2.png",
        width = 7.2, height = 8.2, units = "in", dpi = 300)
-
-
-
-ggplot(net_beta_horvath, 
-       aes(x = as.numeric(effort), y = beta)) +
-  geom_point(size = 2, alpha = 0.1, color = mycol[3]) +
-  geom_smooth(method = "loess", se = F,size = 1.2, color = mycol[6]) +
-  facet_wrap(~ factor(Component), 
-             ncol = 3, drop = FALSE,
-             scales = "free") + 
-  #scale_color_manual(values = mycol[1:3]) +
-  theme_bw() +
-  xlab("Sampling effort of patches") + 
-  ylab("Beta diversity") +
-  theme_bw()+
-  theme(panel.grid = element_blank())+
-  theme(axis.title.y = element_text(size = 12,family = "serif"),
-        axis.text.y = element_text(size = 12, family = "serif"),
-        axis.text.x = element_text(size = 12, family = "serif"),
-        axis.title.x = element_text(size = 12,family = "serif"),
-        strip.text = element_text(size = 11,family = "serif"),
-        legend.text = element_text(size = 12,family = "serif"),
-        legend.title = element_blank())
-
