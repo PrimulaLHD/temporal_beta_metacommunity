@@ -1,5 +1,10 @@
 ## Rcode of the case studies
-
+library(openxlsx)
+library(tydiverse)
+library(bipartite)
+library(igraph)
+library(lme4)
+library(MuMIn)
 
 # case study 1 Hoja mammal data-------------
 Hoja_11 <- read.xlsx("C:/Dataset/Temporal_metacommunity/temporal_beta_metacommunity/Data/Hoja.xlsx",
@@ -323,8 +328,185 @@ ggsave("C:/Dataset/Temporal_metacommunity/Figs/Hoja_beta_plot.pdf", plot = Hoja_
 ggsave("C:/Dataset/Temporal_metacommunity/Figs/Hoja_beta_plot.png", plot = Hoja_beta_plot,
        height = 395/3, width = 421/3, units = "mm")
 
+# case study 2: Zooplankton data----
 
-# case study 2 Lindholm 2019 warter plant data-------------
+Horvath <- read.xlsx("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Data/Horvath_et_al_2019_ Ecology_Letters_community_env_data.xlsx", 
+                     sheet = 2)
+names(Horvath)
+unique(Horvath$Year)
+
+Horvath_1957 <- Horvath %>% 
+  filter(Year == 1957) %>% 
+  dplyr::select(c(2,9:77))
+
+Horvath_1957 <- right.matrix(Horvath_1957)
+visweb(Horvath_1957)
+dim(Horvath_1957)
+
+Horvath_2010 <- Horvath %>% 
+  filter(Year == 2010) %>% 
+  dplyr::select(c(2,9:77))
+
+Horvath_2010 <- right.matrix(Horvath_2010)
+visweb(Horvath_2010)
+
+Horvath_2010 <- Horvath_2010[rownames(Horvath_1957),]
+all(rownames(Horvath_1957)==rownames(Horvath_2010))
+
+
+all(colSums(Horvath_1957)+colSums(Horvath_2010)>0)
+
+dim(Horvath_1957)
+
+Horvath_nets <- list(Horvath_1957 = Horvath_1957,
+                     Horvath_2020 = Horvath_2010)
+
+
+sapply(Horvath_nets, function(x)networklevel(empty(x), 
+                                             index = c("connectance", "number of species", "NODF")))
+
+64-43
+
+# Horvath_1957
+# connectance             0.1751179
+# NODF                   32.9008512
+# number.of.species.HL   64.0000000
+# number.of.species.LL   53.0000000
+
+# Horvath_2020
+# connectance             0.1841085
+# NODF                   39.2164904
+# number.of.species.HL   43.0000000
+# number.of.species.LL   24.0000000
+
+Horvath_nodf_obs <- sapply(Horvath_nets, function(x)networklevel(empty(x), 
+                                                                 index = "NODF"))
+
+# Horvath_1957.NODF Horvath_2020.NODF 
+# 32.90085          39.21649
+
+null_Horvath_1957 <- simulate(vegan::nullmodel(empty(Horvath_1957), method = "quasiswap"), 
+                              nsim = 1000)
+
+null_Horvath_2010 <- simulate(vegan::nullmodel(empty(Horvath_2010), method = "quasiswap"), 
+                              nsim = 1000)
+
+null_Horvath_1957_nodf <- apply(null_Horvath_1957, 3, networklevel, index= "NODF")
+
+Horvath_1957_nodf_z <- (Horvath_nodf_obs[1]-mean(null_Horvath_1957_nodf))/sd(null_Horvath_1957_nodf)
+Horvath_1957_nodf_z
+# -0.07393968
+
+plot(density(null_Horvath_1957_nodf))
+abline(v = Horvath_nodf_obs[1], col = "red")
+
+null_Horvath_2010_nodf <- apply(null_Horvath_2010, 3, networklevel, index= "NODF")
+
+Horvath_2010_nodf_z <- (Horvath_nodf_obs[2]-mean(null_Horvath_2010_nodf))/sd(null_Horvath_2010_nodf)
+Horvath_2010_nodf_z
+#0.8231277
+
+plot(density(null_Horvath_2010_nodf))
+abline(v = Horvath_nodf_obs[2], col = "red")
+
+
+mudule_1957 <- computeModules(empty(Horvath_1957))
+plotModuleWeb(mudule_1957)
+
+mudule_2010 <- computeModules(empty(Horvath_2010))
+plotModuleWeb(mudule_2010)
+
+set.seed(123)
+Horvath_m_obs <- sapply(Horvath_nets, function(x)computeModules(empty(x))@likelihood)
+# Horvath_1957 Horvath_2020 
+# 0.2963813    0.3372022
+
+null_Horvath_1957_m <- apply(null_Horvath_1957[,,1:100], 3, function(x)computeModules(x)@likelihood)
+
+Horvath_1957_m_z <- (Horvath_m_obs[1]-mean(null_Horvath_1957_m))/sd(null_Horvath_1957_m)
+Horvath_1957_m_z
+#14.53441 
+
+null_Horvath_2010_m <- apply(null_Horvath_2010[,,1:100], 3, function(x)computeModules(x)@likelihood)
+
+Horvath_2010_m_z <- (Horvath_m_obs[2]-mean(null_Horvath_2010_m))/sd(null_Horvath_2010_m)
+Horvath_2010_m_z
+
+
+z_score_net <- function(net){
+  nodf_obs <- bipartite::networklevel(net, index = "NODF")
+  M_obs <- bipartite::computeModules(net)@likelihood
+  nulls <- simulate(vegan::nullmodel(net, method = "quasiswap"), nsim = 1000)
+  null_nodf <- apply(nulls, 3, networklevel, index= "NODF")
+  z_nodf <- (nodf_obs-mean(null_nodf))/sd(null_nodf)
+  
+  null_M <-apply(nulls, 3, function(x)computeModules(x)@likelihood)
+  z_M <- (M_obs-mean(M_nodf))/sd(null_M)
+  
+  res <- c(nodf_obs, z_nodf, M_obs, z_M)
+  res
+  
+}
+
+
+
+
+Horvath_beta <- beta_temporal_metacomm(Horvath_1957, Horvath_2010)
+Horvath_beta
+
+#           Component       beta
+# 1        beta_Local 0.33991537
+# 2     beta_Regional 0.07334274
+# 3    beta_Landscape 0.35119887
+# 4           beta_RL 0.12976023
+# 5     beta_temporal 0.89421721
+# 6   beta_extinction 0.73201693
+# 7 beta_colonization 0.16220028
+
+# 0.73201693/0.16220028 = 4.513044
+# 0.73201693/0.89421721 = 0.818612
+
+Horvath_beta %>% 
+  mutate(proportion = beta/0.89421721)
+
+#           Component       beta proportion
+# 1        beta_Local 0.33991537 0.38012618
+# 2     beta_Regional 0.07334274 0.08201893
+# 3    beta_Landscape 0.35119887 0.39274448
+# 4           beta_RL 0.12976023 0.14511041
+# 5     beta_temporal 0.89421721 1.00000000
+# 6   beta_extinction 0.73201693 0.81861198
+# 7 beta_colonization 0.16220028 0.18138801
+
+
+Horvath_beta_plot <- ggplot(Horvath_beta,aes(x = Component, y = beta, fill = Component))+
+  geom_bar(stat = "identity")+
+  scale_fill_brewer(palette = "Dark2")+
+  ylab("β diversity") + xlab("")+
+  theme_bw()+
+  theme(panel.grid = element_blank())+
+  theme(axis.title.x = element_text(size = 12, family = "serif"),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size = 12, family = "serif"),
+        axis.text.y = element_text(size = 12, family = "serif"),
+        legend.title = element_text(size = 12, family = "serif"),
+        legend.text = element_text(size = 12, family = "serif"))
+Horvath_beta_plot
+
+
+ggsave("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Figs/Hovath_beta_plot.pdf",
+       plot = Horvath_beta_plot,
+       height = 395/3, width = 421/3, units = "mm")
+
+op <- par(mfrow = c(2,1))
+plotweb(Horvath_1957, method = "norm",empty = F)
+plotweb(Horvath_2010, method = "norm",empty = F)
+par(op)
+
+plotweb(Horvath_2010, empty = T)
+                    
+
+# case study 3 Lindholm 2019 warter plant data-------------
 
 # a function to make a dataframe to matrix
 right.matrix <- function(x) {
@@ -1405,179 +1587,3 @@ for(i in 1:5) {
   
 }
 
-# case study 3: Zooplankton data----
-
-Horvath <- read.xlsx("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Data/Horvath_et_al_2019_ Ecology_Letters_community_env_data.xlsx", 
-                     sheet = 2)
-names(Horvath)
-unique(Horvath$Year)
-
-Horvath_1957 <- Horvath %>% 
-  filter(Year == 1957) %>% 
-  dplyr::select(c(2,9:77))
-
-Horvath_1957 <- right.matrix(Horvath_1957)
-visweb(Horvath_1957)
-dim(Horvath_1957)
-
-Horvath_2010 <- Horvath %>% 
-  filter(Year == 2010) %>% 
-  dplyr::select(c(2,9:77))
-
-Horvath_2010 <- right.matrix(Horvath_2010)
-visweb(Horvath_2010)
-
-Horvath_2010 <- Horvath_2010[rownames(Horvath_1957),]
-all(rownames(Horvath_1957)==rownames(Horvath_2010))
-
-
-all(colSums(Horvath_1957)+colSums(Horvath_2010)>0)
-
-dim(Horvath_1957)
-
-Horvath_nets <- list(Horvath_1957 = Horvath_1957,
-                     Horvath_2020 = Horvath_2010)
-
-
-sapply(Horvath_nets, function(x)networklevel(empty(x), 
-                                             index = c("connectance", "number of species", "NODF")))
-
-64-43
-
-# Horvath_1957
-# connectance             0.1751179
-# NODF                   32.9008512
-# number.of.species.HL   64.0000000
-# number.of.species.LL   53.0000000
-
-# Horvath_2020
-# connectance             0.1841085
-# NODF                   39.2164904
-# number.of.species.HL   43.0000000
-# number.of.species.LL   24.0000000
-
-Horvath_nodf_obs <- sapply(Horvath_nets, function(x)networklevel(empty(x), 
-                                                                 index = "NODF"))
-
-# Horvath_1957.NODF Horvath_2020.NODF 
-# 32.90085          39.21649
-
-null_Horvath_1957 <- simulate(vegan::nullmodel(empty(Horvath_1957), method = "quasiswap"), 
-                              nsim = 1000)
-
-null_Horvath_2010 <- simulate(vegan::nullmodel(empty(Horvath_2010), method = "quasiswap"), 
-                              nsim = 1000)
-
-null_Horvath_1957_nodf <- apply(null_Horvath_1957, 3, networklevel, index= "NODF")
-
-Horvath_1957_nodf_z <- (Horvath_nodf_obs[1]-mean(null_Horvath_1957_nodf))/sd(null_Horvath_1957_nodf)
-Horvath_1957_nodf_z
-# -0.07393968
-
-plot(density(null_Horvath_1957_nodf))
-abline(v = Horvath_nodf_obs[1], col = "red")
-
-null_Horvath_2010_nodf <- apply(null_Horvath_2010, 3, networklevel, index= "NODF")
-
-Horvath_2010_nodf_z <- (Horvath_nodf_obs[2]-mean(null_Horvath_2010_nodf))/sd(null_Horvath_2010_nodf)
-Horvath_2010_nodf_z
-#0.8231277
-
-plot(density(null_Horvath_2010_nodf))
-abline(v = Horvath_nodf_obs[2], col = "red")
-
-
-mudule_1957 <- computeModules(empty(Horvath_1957))
-plotModuleWeb(mudule_1957)
-
-mudule_2010 <- computeModules(empty(Horvath_2010))
-plotModuleWeb(mudule_2010)
-
-set.seed(123)
-Horvath_m_obs <- sapply(Horvath_nets, function(x)computeModules(empty(x))@likelihood)
-# Horvath_1957 Horvath_2020 
-# 0.2963813    0.3372022
-
-null_Horvath_1957_m <- apply(null_Horvath_1957[,,1:100], 3, function(x)computeModules(x)@likelihood)
-
-Horvath_1957_m_z <- (Horvath_m_obs[1]-mean(null_Horvath_1957_m))/sd(null_Horvath_1957_m)
-Horvath_1957_m_z
-#14.53441 
-
-null_Horvath_2010_m <- apply(null_Horvath_2010[,,1:100], 3, function(x)computeModules(x)@likelihood)
-
-Horvath_2010_m_z <- (Horvath_m_obs[2]-mean(null_Horvath_2010_m))/sd(null_Horvath_2010_m)
-Horvath_2010_m_z
-
-
-z_score_net <- function(net){
-  nodf_obs <- bipartite::networklevel(net, index = "NODF")
-  M_obs <- bipartite::computeModules(net)@likelihood
-  nulls <- simulate(vegan::nullmodel(net, method = "quasiswap"), nsim = 1000)
-  null_nodf <- apply(nulls, 3, networklevel, index= "NODF")
-  z_nodf <- (nodf_obs-mean(null_nodf))/sd(null_nodf)
-  
-  null_M <-apply(nulls, 3, function(x)computeModules(x)@likelihood)
-  z_M <- (M_obs-mean(M_nodf))/sd(null_M)
-  
-  res <- c(nodf_obs, z_nodf, M_obs, z_M)
-  res
-  
-}
-
-
-
-
-Horvath_beta <- beta_temporal_metacomm(Horvath_1957, Horvath_2010)
-Horvath_beta
-
-#           Component       beta
-# 1        beta_Local 0.33991537
-# 2     beta_Regional 0.07334274
-# 3    beta_Landscape 0.35119887
-# 4           beta_RL 0.12976023
-# 5     beta_temporal 0.89421721
-# 6   beta_extinction 0.73201693
-# 7 beta_colonization 0.16220028
-
-# 0.73201693/0.16220028 = 4.513044
-# 0.73201693/0.89421721 = 0.818612
-
-Horvath_beta %>% 
-  mutate(proportion = beta/0.89421721)
-
-#           Component       beta proportion
-# 1        beta_Local 0.33991537 0.38012618
-# 2     beta_Regional 0.07334274 0.08201893
-# 3    beta_Landscape 0.35119887 0.39274448
-# 4           beta_RL 0.12976023 0.14511041
-# 5     beta_temporal 0.89421721 1.00000000
-# 6   beta_extinction 0.73201693 0.81861198
-# 7 beta_colonization 0.16220028 0.18138801
-
-
-Horvath_beta_plot <- ggplot(Horvath_beta,aes(x = Component, y = beta, fill = Component))+
-  geom_bar(stat = "identity")+
-  scale_fill_brewer(palette = "Dark2")+
-  ylab("β diversity") + xlab("")+
-  theme_bw()+
-  theme(panel.grid = element_blank())+
-  theme(axis.title.x = element_text(size = 12, family = "serif"),
-        axis.text.x = element_blank(),
-        axis.title.y = element_text(size = 12, family = "serif"),
-        axis.text.y = element_text(size = 12, family = "serif"),
-        legend.title = element_text(size = 12, family = "serif"),
-        legend.text = element_text(size = 12, family = "serif"))
-Horvath_beta_plot
-
-
-ggsave("C:/Dataset/Temporal_metacommunity/Temporal_beta_metacommunity/Figs/Hovath_beta_plot.pdf",
-       plot = Horvath_beta_plot,
-       height = 395/3, width = 421/3, units = "mm")
-
-op <- par(mfrow = c(2,1))
-plotweb(Horvath_1957, method = "norm",empty = F)
-plotweb(Horvath_2010, method = "norm",empty = F)
-par(op)
-
-plotweb(Horvath_2010, empty = T)
