@@ -2,7 +2,7 @@
  This repository contains data and code necessary to reproduce results shown in the paper:    
  ```
  Li HD, Holyoak M, Xiao ZS*. 2023. Disentangling spatiotemporal dynamics in metacommunities through a 
- species-patch network approach. Ecology Letters. (In revision)
+ species-patch network approach. Ecology Letters. 
 ```
 Contact: *lihd AT ioz.ac.cn* (Hai-Dong Li)
 
